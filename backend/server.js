@@ -106,36 +106,51 @@ app.use("*", (req, res) => {
 // Global error handler
 app.use(errorHandler);
 
-// Connect to database and start server
-const PORT = process.env.PORT || 3000;
-
-const server = connectDB()
-  .then(() => {
-    const httpServer = app.listen(PORT, () => {
-      console.log(
-        `Server running on port ${PORT} in ${
-          process.env.NODE_ENV || "development"
-        } mode`
-      );
+// Database connection middleware (lazy connection for Vercel serverless)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("Database connection error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
+  }
+});
 
-    // Graceful shutdown
-    const gracefulShutdown = (signal) => {
-      console.log(`${signal} received. Shutting down gracefully...`);
-      httpServer.close(() => {
-        console.log("HTTP server closed.");
-        process.exit(0);
+// Start server only if not on Vercel (serverless)
+if (process.env.VERCEL !== "1") {
+  const PORT = process.env.PORT || 3000;
+
+  connectDB()
+    .then(() => {
+      const httpServer = app.listen(PORT, () => {
+        console.log(
+          `Server running on port ${PORT} in ${
+            process.env.NODE_ENV || "development"
+          } mode`
+        );
       });
-    };
 
-    process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-    process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+      // Graceful shutdown
+      const gracefulShutdown = (signal) => {
+        console.log(`${signal} received. Shutting down gracefully...`);
+        httpServer.close(() => {
+          console.log("HTTP server closed.");
+          process.exit(0);
+        });
+      };
 
-    return httpServer;
-  })
-  .catch((error) => {
-    console.error("Failed to start server:", error);
-    process.exit(1);
-  });
+      process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+      process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+    })
+    .catch((error) => {
+      console.error("Failed to start server:", error);
+      process.exit(1);
+    });
+}
 
 export default app;

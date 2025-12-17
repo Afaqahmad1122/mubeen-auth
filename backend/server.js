@@ -5,7 +5,6 @@ import helmet from "helmet";
 import compression from "compression";
 import mongoSanitize from "express-mongo-sanitize";
 import morgan from "morgan";
-import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./src/config/swagger.js";
 import connectDB from "./src/config/database.js";
 import errorHandler from "./src/middleware/errorHandler.js";
@@ -120,15 +119,56 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Swagger Documentation
-app.use(
-  "/api-docs",
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerSpec, {
-    customCss: ".swagger-ui .topbar { display: none }",
-    customSiteTitle: "Mubeen Auth API Documentation",
-  })
-);
+// Swagger Documentation - Custom HTML for Vercel compatibility
+app.get("/api-docs", (req, res) => {
+  const swaggerJsonUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}/api-docs/swagger.json`
+    : `http://localhost:${process.env.PORT || 3000}/api-docs/swagger.json`;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mubeen Auth API Documentation</title>
+  <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui.css" />
+  <style>
+    .swagger-ui .topbar { display: none; }
+    .swagger-ui .info { margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.onload = function() {
+      SwaggerUIBundle({
+        url: "${swaggerJsonUrl}",
+        dom_id: '#swagger-ui',
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        layout: "StandaloneLayout",
+        deepLinking: true,
+        showExtensions: true,
+        showCommonExtensions: true
+      });
+    };
+  </script>
+</body>
+</html>
+  `;
+  res.send(html);
+});
+
+// Swagger JSON endpoint
+app.get("/api-docs/swagger.json", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.send(swaggerSpec);
+});
 
 // API Routes
 app.use("/api/users", userRoutes);

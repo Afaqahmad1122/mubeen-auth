@@ -15,9 +15,21 @@ const options = {
     },
     servers: [
       {
-        url: `http://localhost:${process.env.PORT || 3000}`,
-        description: "Development server",
+        url: process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : `http://localhost:${process.env.PORT || 3000}`,
+        description: process.env.VERCEL_URL
+          ? "Production server"
+          : "Development server",
       },
+      ...(process.env.VERCEL_URL
+        ? []
+        : [
+            {
+              url: `http://localhost:${process.env.PORT || 3000}`,
+              description: "Local development",
+            },
+          ]),
     ],
     components: {
       schemas: {

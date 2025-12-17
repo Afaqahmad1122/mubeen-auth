@@ -1,5 +1,8 @@
 import express from "express";
-import { registerUser } from "../controllers/userController.js";
+import {
+  registerUser,
+  verifyRegistration,
+} from "../controllers/userController.js";
 import { validateUserRegistration } from "../middleware/validation.js";
 import { registerLimiter } from "../config/security.js";
 
@@ -96,5 +99,34 @@ router.post(
   validateUserRegistration,
   registerUser
 );
+
+/**
+ * @swagger
+ * /api/users/verify-registration:
+ *   post:
+ *     summary: Verify OTP and complete registration
+ *     tags: [Users]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               otp:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *       400:
+ *         description: Invalid OTP or validation error
+ */
+router.post("/verify-registration", registerLimiter, verifyRegistration);
 
 export default router;

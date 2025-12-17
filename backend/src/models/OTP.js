@@ -4,8 +4,13 @@ const otpSchema = new mongoose.Schema(
   {
     phoneNumber: {
       type: String,
-      required: true,
       trim: true,
+      index: true,
+    },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
       index: true,
     },
     otp: {
@@ -26,6 +31,14 @@ const otpSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    purpose: {
+      type: String,
+      enum: ["phone_verification", "email_verification", "registration"],
+      default: "phone_verification",
+    },
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+    },
   },
   {
     timestamps: true,
@@ -33,6 +46,8 @@ const otpSchema = new mongoose.Schema(
 );
 
 otpSchema.index({ phoneNumber: 1, verified: 1 });
+otpSchema.index({ email: 1, verified: 1 });
+otpSchema.index({ email: 1, purpose: 1 });
 otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 3600 });
 
 export default mongoose.model("OTP", otpSchema);

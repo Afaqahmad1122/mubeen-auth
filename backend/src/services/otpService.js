@@ -177,3 +177,120 @@ export const isPhoneVerified = async (phoneNumber) => {
   });
   return !!otpRecord;
 };
+
+export const createAndSendEmailOTP = async (
+  email,
+  purpose = "email_verification",
+  metadata = null
+) => {
+  if (!validateEmail(email)) {
+    throw new Error("Invalid email format");
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  await OTP.deleteMany({ email: normalizedEmail, purpose, verified: false });
+
+  const otp = generateOTP();
+  const expiresAt = new Date(
+    Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000
+  );
+
+  await sendOTPviaEmail(normalizedEmail, otp);
+
+  const otpRecord = await OTP.create({
+    email: normalizedEmail,
+    otp,
+    expiresAt,
+    verified: false,
+    purpose,
+    metadata: metadata || {},
+  });
+
+  return otpRecord;
+};
+
+export const verifyEmailOTP = async (
+  email,
+  otp,
+  purpose = "email_verification"
+) => {
+  if (!otp || typeof otp !== "string" || otp.length !== OTP_CONFIG.LENGTH) {
+    return { valid: false, message: "Invalid OTP format" };
+  }
+
+  if (!validateEmail(email)) {
+    return { valid: false, message: "Invalid email format" };
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const otpRecord = await OTP.findOne({
+    email: normalizedEmail,
+    purpose,
+    verified: false,
+  });
+
+  if (!otpRecord) {
+    return { valid: false, message: "OTP not found or already used" };
+  }
+
+  if (new Date() > otpRecord.expiresAt) {
+    await OTP.deleteOne({ _id: otpRecord._id });
+    return { valid: false, message: "OTP has expired" };
+  }
+
+  if (otpRecord.attempts >= OTP_CONFIG.MAX_ATTEMPTS) {
+    await OTP.deleteOne({ _id: otpRecord._id });
+    return {
+      valid: false,
+      message: "Maximum attempts exceeded. Please request a new OTP",
+    };
+  }
+
+  if (otpRecord.otp !== otp.trim()) {
+    otpRecord.attempts += 1;
+    await otpRecord.save();
+    return {
+      valid: false,
+      message: `Invalid OTP. ${
+        OTP_CONFIG.MAX_ATTEMPTS - otpRecord.attempts
+      } attempts remaining`,
+    };
+  }
+
+  otpRecord.verified = true;
+  await otpRecord.save();
+
+  return {
+    valid: true,
+    message: "OTP verified successfully",
+    metadata: otpRecord.metadata,
+  };
+};
+
+export const isEmailVerified = async (
+  email,
+  purpose = "email_verification"
+) => {
+  if (!validateEmail(email)) return false;
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const otpRecord = await OTP.findOne({
+    email: normalizedEmail,
+    purpose,
+    verified: true,
+  });
+  return !!otpRecord;
+};
+
+export const checkPendingOTP = async (email, purpose) => {
+  if (!validateEmail(email)) return false;
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const otpRecord = await OTP.findOne({
+    email: normalizedEmail,
+    purpose,
+    verified: false,
+    expiresAt: { $gt: new Date() },
+  });
+  return !!otpRecord;
+};

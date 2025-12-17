@@ -83,6 +83,43 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Root route
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Mubeen Auth API is running",
+    version: "1.0.0",
+    endpoints: {
+      health: "/health",
+      apiDocs: "/api-docs",
+      users: "/api/users",
+      otp: "/api/otp",
+      auth: "/api/auth",
+    },
+  });
+});
+
+// Database connection middleware (lazy connection for Vercel serverless)
+// Must be before routes that need database
+app.use(async (req, res, next) => {
+  // Skip database connection for health check
+  if (req.path === "/health") {
+    return next();
+  }
+
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("Database connection error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
 // Swagger Documentation
 app.use(
   "/api-docs",
@@ -98,28 +135,13 @@ app.use("/api/users", userRoutes);
 app.use("/api/otp", otpRoutes);
 app.use("/api/auth", authRoutes);
 
-// 404 handler
+// 404 handler (must be last, before error handler)
 app.use("*", (req, res) => {
   res.status(404).json({ success: false, message: "Route not found" });
 });
 
-// Global error handler
+// Global error handler (must be last)
 app.use(errorHandler);
-
-// Database connection middleware (lazy connection for Vercel serverless)
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (error) {
-    console.error("Database connection error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Database connection failed",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
 
 // Start server only if not on Vercel (serverless)
 if (process.env.VERCEL !== "1") {

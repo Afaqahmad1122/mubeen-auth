@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-package-lock.json
+# Note: package-lock.json SHOULD be committed for consistent installs
 yarn.lock
 pnpm-lock.yaml
 
@@ -11,6 +11,20 @@ pnpm-lock.yaml
 .env.test.local
 .env.production.local
 .env.*.local
+*.env
+!.env.example
+
+# Secrets and credentials
+secrets/
+credentials/
+*.pem
+*.key
+*.cert
+*.p12
+*.p8
+id_rsa
+id_rsa.pub
+*.secret
 
 # Logs
 logs

@@ -20,7 +20,36 @@ dotenv.config();
 const app = express();
 
 // Security middleware (must be first)
-app.use(helmet());
+// Configure Helmet with relaxed CSP for Swagger UI
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+        ],
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+        ],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
+        fontSrc: [
+          "'self'",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+          "data:",
+        ],
+      },
+    },
+  })
+);
 
 // CORS configuration
 app.use(cors(corsOptions));

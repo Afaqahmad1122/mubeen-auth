@@ -39,7 +39,12 @@ app.use(
           "https://cdn.jsdelivr.net",
         ],
         imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
+        connectSrc: [
+          "'self'",
+          "https://unpkg.com",
+          "https://cdn.jsdelivr.net",
+          "https://*.vercel.app",
+        ],
         fontSrc: [
           "'self'",
           "https://unpkg.com",
@@ -150,9 +155,8 @@ app.use(async (req, res, next) => {
 
 // Swagger Documentation - Custom HTML for Vercel compatibility
 app.get("/api-docs", (req, res) => {
-  const swaggerJsonUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}/api-docs/swagger.json`
-    : `http://localhost:${process.env.PORT || 3000}/api-docs/swagger.json`;
+  // Use relative URL to avoid CORS/CSP issues
+  const swaggerJsonUrl = "/api-docs/swagger.json";
 
   const html = `
 <!DOCTYPE html>

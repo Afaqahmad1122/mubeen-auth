@@ -214,23 +214,54 @@ export const verifyEmailOTP = async (
   otp,
   purpose = "email_verification"
 ) => {
+  console.log(
+    `[verifyEmailOTP] Verifying OTP for email: ${email}, purpose: ${purpose}`
+  );
+
   if (!otp || typeof otp !== "string" || otp.length !== OTP_CONFIG.LENGTH) {
+    console.log(
+      `[verifyEmailOTP] Invalid OTP format. Length: ${otp?.length}, Expected: ${OTP_CONFIG.LENGTH}`
+    );
     return { valid: false, message: "Invalid OTP format" };
   }
 
   if (!validateEmail(email)) {
+    console.log(`[verifyEmailOTP] Invalid email format: ${email}`);
     return { valid: false, message: "Invalid email format" };
   }
 
   const normalizedEmail = email.trim().toLowerCase();
+  console.log(
+    `[verifyEmailOTP] Searching for OTP with email: ${normalizedEmail}, purpose: ${purpose}`
+  );
+
   const otpRecord = await OTP.findOne({
     email: normalizedEmail,
     purpose,
     verified: false,
   });
 
+  console.log(`[verifyEmailOTP] OTP record found:`, otpRecord ? "Yes" : "No");
+
   if (!otpRecord) {
-    return { valid: false, message: "OTP not found or already used" };
+    // Check if OTP exists but is already verified
+    const verifiedOTP = await OTP.findOne({
+      email: normalizedEmail,
+      purpose,
+      verified: true,
+    });
+
+    if (verifiedOTP) {
+      return {
+        valid: false,
+        message: "OTP has already been used. Please request a new OTP.",
+      };
+    }
+
+    return {
+      valid: false,
+      message: "OTP not found. Please request a new OTP.",
+    };
   }
 
   if (new Date() > otpRecord.expiresAt) {
@@ -246,9 +277,18 @@ export const verifyEmailOTP = async (
     };
   }
 
+  console.log(
+    `[verifyEmailOTP] Comparing OTPs. Provided: ${otp.trim()}, Stored: ${
+      otpRecord.otp
+    }`
+  );
+
   if (otpRecord.otp !== otp.trim()) {
     otpRecord.attempts += 1;
     await otpRecord.save();
+    console.log(
+      `[verifyEmailOTP] OTP mismatch. Attempts: ${otpRecord.attempts}`
+    );
     return {
       valid: false,
       message: `Invalid OTP. ${
@@ -293,4 +333,103 @@ export const checkPendingOTP = async (email, purpose) => {
     expiresAt: { $gt: new Date() },
   });
   return !!otpRecord;
+};
+
+// Generate random OTP for mobile login (no 3rd party integration)
+export const createMobileLoginOTP = async (phoneNumber, metadata = null) => {
+  const formattedPhone = formatPhoneNumber(phoneNumber);
+  if (!formattedPhone) {
+    throw new Error("Invalid phone number format");
+  }
+
+  // Delete any existing unverified login OTPs for this phone number
+  await OTP.deleteMany({
+    phoneNumber: formattedPhone,
+    purpose: "login",
+    verified: false,
+  });
+
+  // Generate random OTP
+  const randomOTP = generateOTP();
+  const expiresAt = new Date(
+    Date.now() + OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000
+  );
+
+  console.log(
+    `[Mobile Login OTP] Generated OTP for ${formattedPhone}: ${randomOTP}`
+  );
+  console.log(
+    `[Mobile Login OTP] Valid for ${OTP_CONFIG.EXPIRY_MINUTES} minutes`
+  );
+
+  const otpRecord = await OTP.create({
+    phoneNumber: formattedPhone,
+    otp: randomOTP,
+    expiresAt,
+    verified: false,
+    purpose: "login",
+    metadata: metadata || {},
+  });
+
+  // Return OTP code in response for user
+  return {
+    otpCode: randomOTP,
+    expiresIn: OTP_CONFIG.EXPIRY_MINUTES,
+    phoneNumber: formattedPhone,
+  };
+};
+
+// Verify mobile login OTP
+export const verifyMobileLoginOTP = async (phoneNumber, otp) => {
+  if (!otp || typeof otp !== "string" || otp.length !== OTP_CONFIG.LENGTH) {
+    return { valid: false, message: "Invalid OTP format" };
+  }
+
+  const formattedPhone = formatPhoneNumber(phoneNumber);
+  if (!formattedPhone) {
+    return { valid: false, message: "Invalid phone number format" };
+  }
+
+  const otpRecord = await OTP.findOne({
+    phoneNumber: formattedPhone,
+    purpose: "login",
+    verified: false,
+  });
+
+  if (!otpRecord) {
+    return { valid: false, message: "OTP not found or already used" };
+  }
+
+  if (new Date() > otpRecord.expiresAt) {
+    await OTP.deleteOne({ _id: otpRecord._id });
+    return { valid: false, message: "OTP has expired" };
+  }
+
+  if (otpRecord.attempts >= OTP_CONFIG.MAX_ATTEMPTS) {
+    await OTP.deleteOne({ _id: otpRecord._id });
+    return {
+      valid: false,
+      message: "Maximum attempts exceeded. Please request a new OTP",
+    };
+  }
+
+  if (otpRecord.otp !== otp.trim()) {
+    otpRecord.attempts += 1;
+    await otpRecord.save();
+    return {
+      valid: false,
+      message: `Invalid OTP. ${
+        OTP_CONFIG.MAX_ATTEMPTS - otpRecord.attempts
+      } attempts remaining`,
+    };
+  }
+
+  otpRecord.verified = true;
+  await otpRecord.save();
+
+  return {
+    valid: true,
+    message: "OTP verified successfully",
+    metadata: otpRecord.metadata,
+  };
 };

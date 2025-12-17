@@ -6,28 +6,37 @@ import { OTP_CONFIG } from "../config/constants.js";
 
 export const login = async (req, res, next) => {
   try {
-    const { email } = req.body;
+    const { phoneNumber } = req.body;
 
-    if (!email || typeof email !== "string") {
-      return sendError(res, "Email is required", 400);
+    if (!phoneNumber || typeof phoneNumber !== "string") {
+      return sendError(res, "Phone number is required", 400);
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const user = await userService.getUserByEmail(normalizedEmail);
+    const user = await userService.getUserByPhoneNumber(phoneNumber);
 
     if (!user) {
-      return sendError(res, "User not found", 404);
+      return sendError(res, "User not found with this phone number", 404);
     }
 
-    await otpService.createAndSendEmailOTP(normalizedEmail, "login", {
+    const metadata = {
       userId: user._id.toString(),
       timestamp: new Date().toISOString(),
-    });
+    };
+
+    // Generate random OTP and return in response
+    const otpResult = await otpService.createMobileLoginOTP(
+      phoneNumber,
+      metadata
+    );
 
     return sendSuccess(
       res,
-      { email: normalizedEmail },
-      `OTP sent to your email. Please verify to login. Valid for ${OTP_CONFIG.EXPIRY_MINUTES} minutes.`,
+      {
+        phoneNumber: otpResult.phoneNumber,
+        otp: otpResult.otpCode, // Random OTP returned in response
+        expiresIn: otpResult.expiresIn,
+      },
+      `OTP generated successfully. Valid for ${otpResult.expiresIn} minutes.`,
       200
     );
   } catch (error) {
@@ -37,28 +46,66 @@ export const login = async (req, res, next) => {
 
 export const verifyLogin = async (req, res, next) => {
   try {
-    const { email, otp } = req.body;
+    // Debug logging
+    console.log("[Verify Login] Full request body:", JSON.stringify(req.body));
+    console.log("[Verify Login] Content-Type:", req.headers["content-type"]);
+    console.log("[Verify Login] Raw body:", req.body);
 
-    if (!email || typeof email !== "string") {
-      return sendError(res, "Email is required", 400);
+    const { phoneNumber, otp } = req.body;
+
+    console.log("[Verify Login] Extracted values:", {
+      phoneNumber,
+      otp,
+      phoneNumberType: typeof phoneNumber,
+      otpType: typeof otp,
+    });
+
+    // Validate inputs
+    const errors = [];
+
+    if (!phoneNumber) {
+      errors.push("Phone number is required");
+    } else if (typeof phoneNumber !== "string") {
+      errors.push("Phone number must be a string");
+    } else if (phoneNumber.trim().length === 0) {
+      errors.push("Phone number cannot be empty");
     }
 
-    if (!otp || typeof otp !== "string" || otp.length !== 6) {
-      return sendError(res, "Valid 6-digit OTP is required", 400);
+    if (!otp) {
+      errors.push("OTP is required");
+    } else if (typeof otp !== "string") {
+      errors.push("OTP must be a string");
+    } else if (otp.trim().length === 0) {
+      errors.push("OTP cannot be empty");
+    } else if (otp.trim().length !== 6) {
+      errors.push(
+        `Valid 6-digit OTP is required. Received ${otp.trim().length} digits`
+      );
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-    const result = await otpService.verifyEmailOTP(
-      normalizedEmail,
-      otp.trim(),
-      "login"
+    if (errors.length > 0) {
+      console.log("[Verify Login] Validation errors:", errors);
+      return sendError(res, errors.join(". "), 400);
+    }
+
+    // Verify OTP via phoneNumber
+    const result = await otpService.verifyMobileLoginOTP(
+      phoneNumber,
+      otp.trim()
     );
 
     if (!result.valid) {
-      return sendError(res, result.message, 400);
+      return sendError(res, result.message || "OTP verification failed", 400);
     }
 
-    const user = await userService.getUserByEmail(normalizedEmail);
+    // Get user from metadata or by phoneNumber
+    let user = null;
+    if (result.metadata && result.metadata.userId) {
+      user = await userService.getUserById(result.metadata.userId);
+    } else {
+      user = await userService.getUserByPhoneNumber(phoneNumber);
+    }
+
     if (!user) {
       return sendError(res, "User not found", 404);
     }

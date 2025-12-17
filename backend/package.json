@@ -25,7 +25,8 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
     "twilio": "^5.10.7",
-    "nodemailer": "^6.9.7"
+    "nodemailer": "^6.9.7",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

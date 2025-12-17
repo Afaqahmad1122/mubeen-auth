@@ -11,6 +11,7 @@ import connectDB from "./src/config/database.js";
 import errorHandler from "./src/middleware/errorHandler.js";
 import userRoutes from "./src/routes/userRoutes.js";
 import otpRoutes from "./src/routes/otpRoutes.js";
+import authRoutes from "./src/routes/authRoutes.js";
 import { apiLimiter, corsOptions } from "./src/config/security.js";
 
 // Load env vars
@@ -83,11 +84,19 @@ app.get("/health", (req, res) => {
 });
 
 // Swagger Documentation
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    customCss: ".swagger-ui .topbar { display: none }",
+    customSiteTitle: "Mubeen Auth API Documentation",
+  })
+);
 
 // API Routes
 app.use("/api/users", userRoutes);
 app.use("/api/otp", otpRoutes);
+app.use("/api/auth", authRoutes);
 
 // 404 handler
 app.use("*", (req, res) => {

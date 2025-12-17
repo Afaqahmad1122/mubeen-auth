@@ -33,7 +33,12 @@ const otpSchema = new mongoose.Schema(
     },
     purpose: {
       type: String,
-      enum: ["phone_verification", "email_verification", "registration"],
+      enum: [
+        "phone_verification",
+        "email_verification",
+        "registration",
+        "login",
+      ],
       default: "phone_verification",
     },
     metadata: {

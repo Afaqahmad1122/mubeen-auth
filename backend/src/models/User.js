@@ -78,6 +78,13 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    phoneNumber: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      index: true,
+    },
     drinking: {
       type: String,
       required: true,
@@ -122,5 +129,6 @@ const userSchema = new mongoose.Schema(
 
 // Index for faster queries
 userSchema.index({ email: 1 });
+userSchema.index({ phoneNumber: 1 });
 
 export default mongoose.model("User", userSchema);

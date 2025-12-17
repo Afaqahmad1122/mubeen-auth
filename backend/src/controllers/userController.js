@@ -5,16 +5,46 @@ import { OTP_CONFIG } from "../config/constants.js";
 
 export const registerUser = async (req, res, next) => {
   try {
-    const { email } = req.body;
+    const { email, phoneNumber } = req.body;
 
     if (!email || typeof email !== "string") {
       return sendError(res, "Valid email is required", 400);
     }
 
+    if (!phoneNumber || typeof phoneNumber !== "string") {
+      return sendError(res, "Phone number is required", 400);
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
-    const existingUser = await userService.getUserByEmail(normalizedEmail);
-    if (existingUser) {
+
+    // Check if email already exists
+    const existingUserByEmail = await userService.getUserByEmail(
+      normalizedEmail
+    );
+    if (existingUserByEmail) {
       return sendError(res, "User with this email already exists", 409);
+    }
+
+    // Format and validate phone number
+    const cleaned = phoneNumber.replace(/\D/g, "");
+    let formattedPhone = null;
+
+    if (cleaned.startsWith("92") && cleaned.length === 12) {
+      formattedPhone = `+${cleaned}`;
+    } else if (cleaned.startsWith("0") && cleaned.length === 11) {
+      formattedPhone = `+92${cleaned.substring(1)}`;
+    } else if (cleaned.length === 10) {
+      formattedPhone = `+92${cleaned}`;
+    } else {
+      return sendError(res, "Invalid phone number format", 400);
+    }
+
+    // Check if phone number already exists
+    const existingUserByPhone = await userService.getUserByPhoneNumber(
+      formattedPhone
+    );
+    if (existingUserByPhone) {
+      return sendError(res, "User with this phone number already exists", 409);
     }
 
     const existingPendingOTP = await otpService.checkPendingOTP(
@@ -29,14 +59,17 @@ export const registerUser = async (req, res, next) => {
       );
     }
 
+    // Save formatted phone number in userData
+    const userData = { ...req.body, phoneNumber: formattedPhone };
+
     await otpService.createAndSendEmailOTP(normalizedEmail, "registration", {
-      userData: req.body,
+      userData: userData,
       timestamp: new Date().toISOString(),
     });
 
     return sendSuccess(
       res,
-      { email: normalizedEmail },
+      { email: normalizedEmail, phoneNumber: formattedPhone },
       `OTP sent to your email. Please verify to complete registration. Valid for ${OTP_CONFIG.EXPIRY_MINUTES} minutes.`,
       200
     );
@@ -91,7 +124,18 @@ export const verifyRegistration = async (req, res, next) => {
     return sendSuccess(res, userResponse, "User registered successfully", 201);
   } catch (error) {
     if (error.code === 11000) {
-      return sendError(res, "User with this email already exists", 409);
+      // MongoDB duplicate key error
+      if (error.keyPattern?.email) {
+        return sendError(res, "User with this email already exists", 409);
+      }
+      if (error.keyPattern?.phoneNumber) {
+        return sendError(
+          res,
+          "User with this phone number already exists",
+          409
+        );
+      }
+      return sendError(res, "User already exists", 409);
     }
     next(error);
   }

@@ -31,6 +31,7 @@ export const validateUserRegistration = (req, res, next) => {
     socialHandle,
     socialHandlePlatform,
     email,
+    phoneNumber,
     drinking,
     smoking,
     iceBreakers1,
@@ -85,6 +86,19 @@ export const validateUserRegistration = (req, res, next) => {
 
   if (!email || !isValidEmail(email)) {
     errors.push("Valid email is required");
+  }
+
+  if (
+    !phoneNumber ||
+    typeof phoneNumber !== "string" ||
+    phoneNumber.trim().length === 0
+  ) {
+    errors.push("Phone number is required");
+  } else {
+    const cleaned = phoneNumber.replace(/\D/g, "");
+    if (cleaned.length < 10 || cleaned.length > 12) {
+      errors.push("Invalid phone number format");
+    }
   }
 
   if (!drinking || !validateDrinking(drinking)) {

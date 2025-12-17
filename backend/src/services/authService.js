@@ -2,11 +2,28 @@ import jwt from "jsonwebtoken";
 import Token from "../models/Token.js";
 import User from "../models/User.js";
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRY = process.env.JWT_EXPIRY;
-const REFRESH_TOKEN_EXPIRY = process.env.REFRESH_TOKEN_EXPIRY;
+const getJWTSecret = () => {
+  const secret = process.env.JWT_SECRET?.trim();
+  if (!secret) {
+    console.error("ERROR: JWT_SECRET is not set in environment variables!");
+    throw new Error("JWT_SECRET environment variable is required");
+  }
+  return secret;
+};
+
+const getJWTExpiry = () => {
+  return process.env.JWT_EXPIRY?.trim() || "7d";
+};
+
+const getRefreshTokenExpiry = () => {
+  return process.env.REFRESH_TOKEN_EXPIRY?.trim() || "30d";
+};
 
 export const generateTokens = (userId) => {
+  const JWT_SECRET = getJWTSecret();
+  const JWT_EXPIRY = getJWTExpiry();
+  const REFRESH_TOKEN_EXPIRY = getRefreshTokenExpiry();
+
   const accessToken = jwt.sign({ userId }, JWT_SECRET, {
     expiresIn: JWT_EXPIRY,
   });
@@ -32,6 +49,7 @@ export const saveToken = async (userId, token, type = "access") => {
 
 export const verifyToken = async (token) => {
   try {
+    const JWT_SECRET = getJWTSecret();
     const decoded = jwt.verify(token, JWT_SECRET);
 
     const tokenRecord = await Token.findOne({ token });

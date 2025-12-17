@@ -18,6 +18,15 @@ export const registerLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Rate limit for OTP requests
+export const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: "Too many OTP requests. Please try again after 15 minutes.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // CORS configuration
 export const corsOptions = {
   origin: process.env.ALLOWED_ORIGINS

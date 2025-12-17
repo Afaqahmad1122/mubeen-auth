@@ -26,3 +26,9 @@ export const VALID_POLITICAL_AFFILIATIONS = [
   "independent",
   "other",
 ];
+
+export const OTP_CONFIG = {
+  EXPIRY_MINUTES: parseInt(process.env.OTP_EXPIRY_MINUTES) || 10,
+  MAX_ATTEMPTS: 3,
+  LENGTH: 6,
+};

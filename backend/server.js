@@ -10,6 +10,7 @@ import swaggerSpec from "./src/config/swagger.js";
 import connectDB from "./src/config/database.js";
 import errorHandler from "./src/middleware/errorHandler.js";
 import userRoutes from "./src/routes/userRoutes.js";
+import otpRoutes from "./src/routes/otpRoutes.js";
 import { apiLimiter, corsOptions } from "./src/config/security.js";
 
 // Load env vars
@@ -86,6 +87,7 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // API Routes
 app.use("/api/users", userRoutes);
+app.use("/api/otp", otpRoutes);
 
 // 404 handler
 app.use("*", (req, res) => {

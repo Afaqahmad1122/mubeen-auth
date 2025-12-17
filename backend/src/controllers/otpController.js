@@ -1,23 +1,29 @@
 import * as otpService from "../services/otpService.js";
 import { sendSuccess, sendError } from "../utils/response.js";
+import { OTP_CONFIG } from "../config/constants.js";
 
 export const requestOTP = async (req, res, next) => {
   try {
     const { phoneNumber, email } = req.body;
 
-    if (!phoneNumber) {
+    if (!phoneNumber || typeof phoneNumber !== "string") {
       return sendError(res, "Phone number is required", 400);
     }
 
-    await otpService.createAndSendOTP(phoneNumber, email);
+    if (email && typeof email !== "string") {
+      return sendError(res, "Invalid email format", 400);
+    }
+
+    await otpService.createAndSendOTP(
+      phoneNumber.trim(),
+      email?.trim() || null
+    );
 
     const deliveryMethod = email ? "email" : "SMS";
     return sendSuccess(
       res,
-      { phoneNumber, email: email || null },
-      `OTP sent successfully via ${deliveryMethod}. Valid for ${
-        process.env.OTP_EXPIRY_MINUTES || 10
-      } minutes.`,
+      { phoneNumber: phoneNumber.trim(), email: email?.trim() || null },
+      `OTP sent successfully via ${deliveryMethod}. Valid for ${OTP_CONFIG.EXPIRY_MINUTES} minutes.`,
       200
     );
   } catch (error) {
@@ -29,11 +35,15 @@ export const verifyOTP = async (req, res, next) => {
   try {
     const { phoneNumber, otp } = req.body;
 
-    if (!phoneNumber || !otp) {
-      return sendError(res, "Phone number and OTP are required", 400);
+    if (!phoneNumber || typeof phoneNumber !== "string") {
+      return sendError(res, "Phone number is required", 400);
     }
 
-    const result = await otpService.verifyOTP(phoneNumber, otp);
+    if (!otp || typeof otp !== "string") {
+      return sendError(res, "OTP is required", 400);
+    }
+
+    const result = await otpService.verifyOTP(phoneNumber.trim(), otp.trim());
 
     if (!result.valid) {
       return sendError(res, result.message, 400);
@@ -41,7 +51,7 @@ export const verifyOTP = async (req, res, next) => {
 
     return sendSuccess(
       res,
-      { phoneNumber, verified: true },
+      { phoneNumber: phoneNumber.trim(), verified: true },
       result.message,
       200
     );

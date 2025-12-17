@@ -1,14 +1,19 @@
 import twilio from "twilio";
 
+let twilioClient = null;
+
 const getTwilioClient = () => {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  if (twilioClient) return twilioClient;
+
+  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
+  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
 
   if (!accountSid || !authToken) {
     throw new Error("Twilio credentials are not configured");
   }
 
-  return twilio(accountSid, authToken);
+  twilioClient = twilio(accountSid, authToken);
+  return twilioClient;
 };
 
 export const sendOTPviaSMS = async (phoneNumber, otp) => {

@@ -1,4 +1,14 @@
 import swaggerJsdoc from "swagger-jsdoc";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+// Get the directory of the current file (ES modules equivalent of __dirname)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Resolve paths relative to the project root (backend directory)
+// Go up from src/config to backend root
+const projectRoot = join(__dirname, "../..");
 
 const options = {
   definition: {
@@ -229,7 +239,8 @@ const options = {
       },
     },
   },
-  apis: ["./src/routes/*.js", "./server.js"],
+  // Use absolute paths to ensure swagger-jsdoc can find the files
+  apis: [join(projectRoot, "src/routes/*.js"), join(projectRoot, "server.js")],
 };
 
 const swaggerSpec = swaggerJsdoc(options);
